@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+		<title>proton.js-render-custom-pixi.js</title>
+		<meta charset="utf-8">
+
+	<script src="lib/proton-1.0.1.js"></script>
+	<script src="lib/phaser.min.js"></script>
+	<script src="lib/dat.gui.min.js"></script>
+
+	<meta name="mobile-web-app-capable" content="yes">
+    <meta name="viewport" content="width=device-width, initial-scale=0.5, maximum-scale=0.5, user-scalable=no">
+
+	<style type="text/css">
+		canvas, body, html{
+			margin: 0px;
+			padding: 0px;
+            /*position: absolute;
+            top: 0px;
+            left: 0px;
+            right: 0px;
+            bottom:0px;
+            margin: auto;*/
+        }
+	</style>
+
+</head>
+	<body>
+		<script>
+
+			console.log('sdf')
+
+			var proton;
+			var emitter;
+			var texture;
+			var game;
+			var stage;
+			var circle;
+			var particleContainer;
+			var particleDisplayTexture;
+			var trailsClear;
+
+			var radiusInit;
+
+
+
+			var initalizers = {
+				radius:null,
+				mass:null,
+				life:null,
+				velocity:null
+			}
+
+			var behaviours = {
+				color:null,
+				drift:null,
+				attraction:null
+			}
+
+			var renderer;
+
+
+
+
+			var controls = {
+				//radius
+				minRadius: 1,
+				maxRadius: 2,
+				//emit rate
+				minRate:1,
+				maxRate:2,
+				frequency: 0.012,
+				//appearance
+				randomFill:true,
+				fill:'#fff000',
+				stroke:'#000000',
+				strokeWeight:0,
+				//velocity
+				minEmitVelocity:4,
+				maxEmitVelocity:6,
+				minEmitAngle:45,
+				maxEmitAngle:45,
+				//mass
+				minMass: 1,
+				maxMass: 1,
+				//life
+				minLife: 5,
+				maxLife: 10,
+				//background
+				backgroundColor:'#1d1d20',
+				//drift
+				driftX:0,
+				driftY:0,
+				//emit
+				mouseEmit:false
+
+
+
+			}
+
+			var width, height
+
+			width = window.innerWidth
+			height = window.innerHeight
+
+			console.log(width, height)
+
+			game = new Phaser.Game(width, height, Phaser.AUTO, 'phaser-example', { preload: preload, create: create, update: update }, false, false);
+
+			
+
+			//console.log(render)
+			//.clearBeforeRender = false;
+			function preload()
+			{
+
+				// game.renderer.clearBeforeRender = false;
+				game.stage.backgroundColor = controls.backgroundColor;
+
+			    trailsClear = new Phaser.Graphics();
+			    trailsClear.beginFill(controls.backgroundColor.replace('#', '0x'), 0.2);
+			    trailsClear.drawRect(0, 0, game.stage.width, game.stage.height);
+			}
+			function create()
+			{
+				
+				var gui = new dat.GUI();
+
+				gui.addColor(controls, 'backgroundColor').onChange(function(e){
+					game.stage.backgroundColor = controls.backgroundColor;
+					trailsClear.clear();
+			    	trailsClear.beginFill(controls.backgroundColor.replace('#', '0x'), 0.2);
+			    	trailsClear.drawRect(0, 0, game.stage.width, game.stage.height);
+
+				});
+
+				gui.add(controls, 'mouseEmit').onChange(function(e){
+					if(controls.mouseEmit){
+						emitter.stopEmit();
+					}else{
+						emitter.emit();
+					}
+				});
+
+				//Radius
+				var radiusFolder = gui.addFolder('Emitter Radius');
+
+				radiusFolder.add(controls, 'minRadius', 0, 100).onChange(function(e){
+					initalizers.radius.reset(controls.minRadius, controls.maxRadius);
+				});
+
+				radiusFolder.add(controls, 'maxRadius', 0, 100).onChange(function(){
+					initalizers.radius.reset(controls.minRadius, controls.maxRadius);
+				});
+
+
+				//Rate
+				var rateFolder = gui.addFolder('Emitter Rate');
+
+				rateFolder.add(controls, 'minRate', 0, 100).onChange(function(){
+					emitter.rate = new Proton.Rate(new Proton.Span(controls.minRate, controls.maxRate), controls.frequency);
+				});
+
+				rateFolder.add(controls, 'maxRate', 0, 100).onChange(function(){
+					emitter.rate = new Proton.Rate(new Proton.Span(controls.minRate, controls.maxRate), controls.frequency);
+				});
+
+				rateFolder.add(controls, 'frequency', 0.00, 1.00).onChange(function(){
+					emitter.rate = new Proton.Rate(new Proton.Span(controls.minRate, controls.maxRate), controls.frequency);
+				});
+
+
+				//Mass
+				var massFolder = gui.addFolder('Emitter Mass');
+
+				massFolder.add(controls, 'minMass', 0, 100).onChange(function(e){
+					console.log(e)
+					initalizers.mass.reset(controls.minMass, controls.maxMass);
+				});
+
+				massFolder.add(controls, 'maxMass', 0, 100).onChange(function(){
+					initalizers.mass.reset(controls.minMass, controls.maxMass);
+				});
+
+
+				//Life
+				var lifeFolder = gui.addFolder('Emitter Life');
+
+				lifeFolder.add(controls, 'minLife', 0, 20).onChange(function(e){
+					initalizers.life.reset(controls.minLife, controls.maxLife);
+				});
+
+				lifeFolder.add(controls, 'maxLife', 0, 20).onChange(function(){
+					initalizers.life.reset(controls.minLife, controls.maxLife);
+				});
+
+
+				//Velocity
+				var velocityFolder = gui.addFolder('Emitter Velocity');
+
+				velocityFolder.add(controls, 'minEmitVelocity', 0, 20).onChange(function(e){
+					initalizers.velocity.reset(new Proton.Span(controls.minEmitVelocity, controls.maxEmitVelocity), new Proton.Span(controls.minEmitAngle, controls.maxEmitAngle), 'polar');
+				});
+
+				velocityFolder.add(controls, 'maxEmitVelocity', 0, 20).onChange(function(){
+					initalizers.velocity.reset(new Proton.Span(controls.minEmitVelocity, controls.maxEmitVelocity), new Proton.Span(controls.minEmitAngle, controls.maxEmitAngle), 'polar');
+				});
+
+				velocityFolder.add(controls, 'minEmitAngle', 0, 360).onChange(function(e){
+					initalizers.velocity.reset(new Proton.Span(controls.minEmitVelocity, controls.maxEmitVelocity), new Proton.Span(controls.minEmitAngle, controls.maxEmitAngle), 'polar');
+				});
+
+				velocityFolder.add(controls, 'maxEmitAngle', 0, 360).onChange(function(){
+					initalizers.velocity.reset(new Proton.Span(controls.minEmitVelocity, controls.maxEmitVelocity), new Proton.Span(controls.minEmitAngle, controls.maxEmitAngle), 'polar');
+				});
+
+
+				var appearanceFolder = gui.addFolder('Particle Appearance');
+
+				appearanceFolder.add(controls, 'randomFill').onChange(function(){
+					if(controls.randomFill){
+						behaviours.color.reset('random');
+					}else{
+						behaviours.color.reset(controls.fill);
+					}
+					
+				});
+
+				appearanceFolder.addColor(controls, 'fill').onChange(function(){
+					if(controls.randomFill){
+						behaviours.color.reset('random');
+					}else{
+						behaviours.color.reset(controls.fill);
+					}
+				});
+
+				appearanceFolder.addColor(controls, 'stroke').onChange(function(){
+					renderer.setStroke(controls.stroke, controls.strokeWeight);
+				});
+
+				appearanceFolder.add(controls, 'strokeWeight', 0, 20).onChange(function(){
+					renderer.setStroke(controls.stroke, controls.strokeWeight)
+				});
+
+
+				//drift
+				var driftFolder = gui.addFolder('Particle Drift');
+
+				driftFolder.add(controls, 'driftX', 0, 100).onChange(function(e){
+					behaviours.drift.reset(controls.driftX, controls.driftY, 0);
+				});
+
+				driftFolder.add(controls, 'driftY', 0, 100).onChange(function(){
+					behaviours.drift.reset(controls.driftX, controls.driftY, 0);
+				});
+
+
+
+
+
+
+
+
+
+
+
+
+				createProton();
+
+
+				particleDisplayTexture = game.make.renderTexture(game.stage.width, game.stage.height, 'texture');
+				game.add.sprite(0, 0, particleDisplayTexture);
+
+
+				//Bind input
+				game.input.onDown.add(function(){
+	                console.log('down');
+	                if(controls.mouseEmit){
+	                	emitter.emit();
+	                }else{
+	                	behaviours.attraction.force = 1000;
+	                }
+	                
+	            });
+
+	            game.input.addMoveCallback(move);
+
+	            game.input.onUp.add(function(){
+	                if(controls.mouseEmit){
+	                	emitter.stopEmit();
+	                }else{
+	                	behaviours.attraction.force = 0;
+	                }
+	            });
+			}
+
+
+			function update()
+			{
+
+				if(!controls.mouseEmit){
+					emitter.p.x = Math.floor(Math.random()*width);
+					emitter.p.y = Math.floor(Math.random()*height);
+				}
+
+				proton.update();
+				particleDisplayTexture.renderXY(trailsClear, 0,0, false);
+				particleDisplayTexture.renderXY(particleContainer, 0,0, false);
+				
+
+			}
+
+
+			function render()
+			{
+
+			}
+
+
+			function createProton() {
+
+				
+				//PIXI is inside Phaser ! so it's fine !
+				proton = new Proton();
+				emitter = new Proton.BehaviourEmitter();
+
+				//rate
+				emitter.rate = new Proton.Rate(new Proton.Span(controls.minRate, controls.maxRate), controls.frequency);
+
+				//radius
+				initalizers.radius = new Proton.Radius(controls.minRadius, controls.maxRadius);
+				emitter.addInitialize(initalizers.radius)
+
+				//mass
+				initalizers.mass = new Proton.Mass(controls.minMass, controls.maxMass);
+				emitter.addInitialize(initalizers.mass)
+
+				//life
+				initalizers.life = new Proton.Life(controls.minLife, controls.maxLife);
+				emitter.addInitialize(initalizers.life)
+
+				//velocity
+				initalizers.velocity = new Proton.Velocity(new Proton.Span(controls.minEmitVelocity, controls.maxEmitVelocity), new Proton.Span(controls.minEmitAngle, controls.maxEmitAngle), 'polar');
+				emitter.addInitialize(initalizers.velocity)
+				
+
+				//color
+				behaviours.color = new Proton.Color(controls.fill);
+				if(controls.randomFill){
+					behaviours.color.reset('random');
+				}else{
+					behaviours.color.reset(controls.fill);
+				}
+				emitter.addBehaviour(behaviours.color);
+
+				//drift
+				behaviours.drift = new Proton.RandomDrift(controls.driftX, controls.driftY, 0);
+				emitter.addBehaviour(behaviours.drift);
+
+
+
+				//emitter.addBehaviour(new Proton.Scale(1));
+				//emitter.addBehaviour(new Proton.RandomDrift(30, 30, 0));
+				emitter.addBehaviour(new Proton.Collision(emitter));
+
+				emitter.addBehaviour(new Proton.CrossZone(new Proton.RectZone(0, 0, width, height), 'bound'));
+				emitter.damping = 0.02;
+
+				emitter.p.x = game.stage.width/2;
+				emitter.p.y = game.stage.height/2;
+				//emitter.emit();//emitter.stopEmit
+				proton.addEmitter(emitter); 
+				//emitter.addSelfBehaviour(new Proton.Gravity(5));
+				//emitter.addSelfBehaviour(new Proton.RandomDrift(30, 30, .1));
+				//emitter.addSelfBehaviour(new Proton.CrossZone(new Proton.RectZone(50, 0, 953, 610), 'bound'));
+
+			
+				// attractionBehaviour = new Proton.Attraction({x:100,y:100},0.5, 2000,100000,1000000000); //target position,force,radius,life,easing
+				
+				behaviours.attraction = new Proton.Attraction({x:0,y:0},0, width*2);
+				emitter.addBehaviour(behaviours.attraction);
+
+				console.log(behaviours.attraction)
+
+				particleContainer = game.add.group();
+
+				renderer = new Proton.Renderer('phaser', proton, particleContainer);
+				renderer.setStroke(controls.stroke, controls.strokeWeight)
+				renderer.start();
+
+
+
+				if(controls.mouseEmit){
+					emitter.stopEmit();
+				}else{
+					emitter.emit();
+				}
+
+				//console.log('sdf', renderer)
+		
+			}
+
+
+
+
+			function move(pointer, x, y){
+
+	            if(pointer.isDown){
+
+	            	if(controls.mouseEmit){
+	            		emitter.p.x = x;
+	            		emitter.p.y = y;
+	            	}else{
+	            		behaviours.attraction.targetPosition.x = x;
+	            		behaviours.attraction.targetPosition.y = y;
+	            	}
+	            	//console.log('move');
+	            	
+	            }
+
+	        }
+			
+		</script>
+	
+</body>
+</html>
